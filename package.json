@@ -1,6 +1,6 @@
 {
   "name": "mythix-ui-for-each",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A tabbed view component for Mythix UI",
   "main": "dist/mythix-ui-for-each.js",
   "type": "module",
