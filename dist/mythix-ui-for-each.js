@@ -1,6 +1,6 @@
 import { MythixUIComponent, Utils } from 'mythix-ui-core';
 
-export default class MythixUIForEach extends MythixUIComponent {
+export class MythixUIForEach extends MythixUIComponent {
   static tagName = 'mythix-for-each';
 
   constructor() {
@@ -28,7 +28,7 @@ export default class MythixUIForEach extends MythixUIComponent {
           if (changeEvent.defaultPrevented)
             return;
 
-          _items._set(items);
+          _items[Utils.DynamicProperty.set](items);
           this.render(_items.valueOf());
         },
       },
@@ -66,8 +66,16 @@ export default class MythixUIForEach extends MythixUIComponent {
     return item;
   }
 
+  metadataKey() {
+    return `mythix-for-each:${this.getIdentifier()}`;
+  }
+
   insertRenderedItem(context, _item) {
     let item = _item;
+
+    Utils.metadata(item, this.metadataKey(), context);
+    Utils.metadata(item, 'mythix-for-each', context);
+
     if (item.nodeType === Node.TEXT_NODE) {
       this.shadow.appendChild(item);
       return;
@@ -118,6 +126,10 @@ export default class MythixUIForEach extends MythixUIComponent {
 
     const createAndRegisterTextNode = (item) => {
       let textNode = context.ownerDocument.createTextNode(item.toString());
+
+      Utils.metadata(textNode, this.metadataKey(), context);
+      Utils.metadata(textNode, 'mythix-for-each', context);
+
       item.registerForUpdate(textNode, (textNode, item) => {
         textNode.nodeValue = item.toString();
       });
@@ -152,17 +164,6 @@ export default class MythixUIForEach extends MythixUIComponent {
     }
   }
 
-  createContextHelperProxy(context) {
-    return new Proxy(context, {
-      get: (target, propName) => {
-        if (propName in target)
-          return target[propName];
-
-        return this.$$.propName;
-      },
-    });
-  }
-
   render(items) {
     let renderedItems = this.clearRenderedItems();
     if (!items)
@@ -181,21 +182,21 @@ export default class MythixUIForEach extends MythixUIComponent {
       template.appendChild(node.cloneNode(true));
     }
 
-    let forceNumberIndex  = Utils.isType(items, 'String', Set);
     let index             = 0;
-    let context           = this.createContextHelperProxy({
-      template,
-      ownerDocument,
-      items,
-      renderedItems,
-    });
+    let forceNumberIndex  = Utils.isType(items, 'String', Set);
 
     for (let [ key, item ] of entries) {
       if (forceNumberIndex)
         key = index++;
 
-      context.key = key;
-      context.item = item;
+      let context = {
+        template,
+        ownerDocument,
+        items,
+        renderedItems,
+        key,
+        item,
+      };
 
       if (typeof this.doCallback === 'function')
         item = context.item = this.doCallback(context);
@@ -211,7 +212,7 @@ export default class MythixUIForEach extends MythixUIComponent {
       template.cloneNode(true),
       {
         forceTemplateEngine:  true,
-        scopes:               [ context ],
+        scope:                Utils.createScope(context, this),
       },
     );
   }
@@ -225,11 +226,11 @@ export default class MythixUIForEach extends MythixUIComponent {
       return;
     }
 
-    this.doCallback = Utils.createContextAwareCallback({ body: value, scopes: [ this ] });
+    this.doCallback = Utils.createTemplateMacro({ body: value, scope: Utils.createScope(this) });
   }
 
   set attr$of([ value ]) {
-    let items = Utils.createContextAwareCallback({ body: value, scopes: [ this ] })();
+    let items = Utils.createTemplateMacro({ body: value, scope: Utils.createScope(this) })();
 
     if (Utils.isType(items, Utils.DynamicProperty, 'DynamicProperty')) {
       items.removeEventListener('update', this.onOfChange);
