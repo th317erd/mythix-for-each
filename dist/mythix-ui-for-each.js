@@ -89,7 +89,7 @@ export class MythixUIForEach extends MythixUIComponent {
       let itemID = item.getAttribute('id');
       if (!itemID) {
         let idItem = context.item;
-        itemID = `ID${(Utils.isCollectable(idItem)) ? Utils.getObjID(item) : Utils.SHA256(idItem)}`;
+        itemID = `ID${(Utils.isCollectable(idItem)) ? Utils.getObjectID(item) : Utils.SHA256(idItem)}`;
         item.setAttribute('id', itemID);
       }
 
