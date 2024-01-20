@@ -1,12 +1,40 @@
-import { MythixUIComponent, Utils } from 'mythix-ui-core';
+import { MythixUIComponent, Utils } from '@cdn/mythix-ui-core@1';
+
+const IS_TEMPLATE = /^template$/i;
 
 export class MythixUIForEach extends MythixUIComponent {
   static tagName = 'mythix-for-each';
 
-  constructor() {
-    super();
+  createShadowDOM() {
+  }
 
-    let _items = new Utils.DynamicProperty([]);
+  mounted() {
+    super.mounted();
+
+    let preMountItems = this.items;
+    let _items        = new Utils.DynamicProperty([]);
+
+    const updateAndRender = (value) => {
+      if (value === this.items)
+        return this.render(_items.valueOf());
+
+      let items = value;
+      if (Utils.isType(items, Utils.DynamicProperty))
+        items = items.valueOf();
+
+      let changeEvent = new Event('change');
+      changeEvent.originator = this;
+      changeEvent.oldValue = this.items;
+      changeEvent.value = items;
+
+      this.dispatchEvent(changeEvent);
+      if (changeEvent.defaultPrevented)
+        return;
+
+      _items[Utils.DynamicProperty.set](items);
+      this.render(_items.valueOf());
+    };
+
     Object.defineProperties(this, {
       'items': {
         enumerable:   false,
@@ -15,24 +43,27 @@ export class MythixUIForEach extends MythixUIComponent {
           return _items;
         },
         set:          (value) => {
-          let items = value;
-          if (Utils.isType(items, Utils.DynamicProperty, 'DynamicProperty'))
-            items = items.valueOf();
-
-          let changeEvent = new Event('change');
-          changeEvent.oroginator = this;
-          changeEvent.oldValue = this.items;
-          changeEvent.value = items;
-
-          this.dispatchEvent(changeEvent);
-          if (changeEvent.defaultPrevented)
-            return;
-
-          _items[Utils.DynamicProperty.set](items);
-          this.render(_items.valueOf());
+          updateAndRender(value);
         },
       },
+      'itemTemplate': {
+        writable:     true,
+        enumerable:   false,
+        configurable: false,
+        value:        this.getChildrenAsFragment(true) || this.itemTemplate || this.getRawTemplate(),
+      },
     });
+
+    if (Utils.isNotNOE(preMountItems))
+      updateAndRender(preMountItems);
+  }
+
+  setItemTemplate(element) {
+    this.itemTemplate = element;
+
+    // Force a re-render
+    // eslint-disable-next-line no-self-assign
+    this.items = this.items;
   }
 
   onOfChange({ value }) {
@@ -40,10 +71,9 @@ export class MythixUIForEach extends MythixUIComponent {
   }
 
   clearRenderedItems() {
-    let shadow      = this.shadow;
-    let childNodes  = (this.ownerDocument || document).createDocumentFragment();
-    while (shadow.childNodes.length)
-      childNodes.appendChild(shadow.childNodes[0]);
+    let childNodes = (this.ownerDocument || document).createDocumentFragment();
+    while (this.childNodes.length)
+      childNodes.appendChild(this.childNodes[0]);
 
     return childNodes;
   }
@@ -76,8 +106,20 @@ export class MythixUIForEach extends MythixUIComponent {
     Utils.metadata(item, this.metadataKey(), context);
     Utils.metadata(item, 'mythix-for-each', context);
 
+    const dispatchRenderedItemEvent = (context, item) => {
+      let event = new Event('item:rendered');
+
+      event.relatedTarget = item;
+      event.context = context;
+
+      this.dispatchEvent(event);
+    };
+
     if (item.nodeType === Node.TEXT_NODE) {
-      this.shadow.appendChild(item);
+      dispatchRenderedItemEvent(context, item);
+
+      this.appendChild(item);
+
       return;
     }
 
@@ -104,7 +146,11 @@ export class MythixUIForEach extends MythixUIComponent {
       }
     }
 
-    this.shadow.appendChild(item);
+    item.setAttribute('part', 'item');
+
+    dispatchRenderedItemEvent(context, item);
+
+    this.appendChild(item);
 
     return item;
   }
@@ -154,7 +200,7 @@ export class MythixUIForEach extends MythixUIComponent {
         } else if (item.nodeType === Node.TEXT_NODE) {
           this.insertRenderedItem(context, item);
         }
-      } else if (Utils.isType(item, Utils.DynamicProperty, 'DynamicProperty')) {
+      } else if (Utils.isType(item, Utils.DynamicProperty)) {
         let textNode = createAndRegisterTextNode(item);
         this.insertRenderedItem(context, textNode);
       } else {
@@ -165,6 +211,10 @@ export class MythixUIForEach extends MythixUIComponent {
   }
 
   render(items) {
+    let template = this.itemTemplate && this.itemTemplate.cloneNode(true);
+    if (!template)
+      return;
+
     let renderedItems = this.clearRenderedItems();
     if (!items)
       return;
@@ -175,13 +225,7 @@ export class MythixUIForEach extends MythixUIComponent {
     else
       entries = Object.entries(items);
 
-    let ownerDocument = this.ownerDocument || document;
-    let template      = ownerDocument.createDocumentFragment();
-    for (let i = 0, il = this.childNodes.length; i < il; i++) {
-      let node = this.childNodes[i];
-      template.appendChild(node.cloneNode(true));
-    }
-
+    let ownerDocument     = this.ownerDocument || document;
     let index             = 0;
     let forceNumberIndex  = Utils.isType(items, 'String', Set);
 
@@ -209,7 +253,7 @@ export class MythixUIForEach extends MythixUIComponent {
   renderChild(context) {
     let { template } = context;
     return this.processElements(
-      template.cloneNode(true),
+      ((IS_TEMPLATE.test(template.tagName)) ? template.content : template).cloneNode(true),
       {
         forceTemplateEngine:  true,
         scope:                Utils.createScope(context, this),
@@ -232,7 +276,7 @@ export class MythixUIForEach extends MythixUIComponent {
   set attr$of([ value ]) {
     let items = Utils.createTemplateMacro({ body: value, scope: Utils.createScope(this) })();
 
-    if (Utils.isType(items, Utils.DynamicProperty, 'DynamicProperty')) {
+    if (Utils.isType(items, Utils.DynamicProperty)) {
       items.removeEventListener('update', this.onOfChange);
       items.addEventListener('update', this.onOfChange);
 
