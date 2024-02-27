@@ -1,4 +1,9 @@
-import { MythixUIComponent, Utils } from '@cdn/mythix-ui-core@1';
+import {
+  MythixUIComponent,
+  BaseUtils,
+  Utils,
+  DynamicProperty,
+} from '@cdn/mythix-ui-core@1';
 
 const IS_TEMPLATE = /^template$/i;
 
@@ -12,14 +17,14 @@ export class MythixUIForEach extends MythixUIComponent {
     super.mounted();
 
     let preMountItems = this.items;
-    let _items        = new Utils.DynamicProperty([]);
+    let _items        = new DynamicProperty([]);
 
     const updateAndRender = (value) => {
       if (value === this.items)
         return this.render(_items.valueOf());
 
       let items = value;
-      if (Utils.isType(items, Utils.DynamicProperty))
+      if (BaseUtils.isType(items, DynamicProperty))
         items = items.valueOf();
 
       let changeEvent = new Event('change');
@@ -31,7 +36,7 @@ export class MythixUIForEach extends MythixUIComponent {
       if (changeEvent.defaultPrevented)
         return;
 
-      _items[Utils.DynamicProperty.set](items);
+      _items[DynamicProperty.set](items);
       this.render(_items.valueOf());
     };
 
@@ -54,7 +59,7 @@ export class MythixUIForEach extends MythixUIComponent {
       },
     });
 
-    if (Utils.isNotNOE(preMountItems))
+    if (BaseUtils.isNotNOE(preMountItems))
       updateAndRender(preMountItems);
   }
 
@@ -131,7 +136,7 @@ export class MythixUIForEach extends MythixUIComponent {
       let itemID = item.getAttribute('id');
       if (!itemID) {
         let idItem = context.item;
-        itemID = `ID${(Utils.isCollectable(idItem)) ? Utils.getObjectID(item) : Utils.SHA256(idItem)}`;
+        itemID = `ID${(BaseUtils.isCollectable(idItem)) ? BaseUtils.getObjectID(item) : BaseUtils.SHA256(idItem)}`;
         item.setAttribute('id', itemID);
       }
 
@@ -200,7 +205,7 @@ export class MythixUIForEach extends MythixUIComponent {
         } else if (item.nodeType === Node.TEXT_NODE) {
           this.insertRenderedItem(context, item);
         }
-      } else if (Utils.isType(item, Utils.DynamicProperty)) {
+      } else if (BaseUtils.isType(item, DynamicProperty)) {
         let textNode = createAndRegisterTextNode(item);
         this.insertRenderedItem(context, textNode);
       } else {
@@ -227,7 +232,7 @@ export class MythixUIForEach extends MythixUIComponent {
 
     let ownerDocument     = this.ownerDocument || document;
     let index             = 0;
-    let forceNumberIndex  = Utils.isType(items, 'String', Set);
+    let forceNumberIndex  = BaseUtils.isType(items, 'String', Set);
 
     for (let [ key, item ] of entries) {
       if (forceNumberIndex)
@@ -276,7 +281,7 @@ export class MythixUIForEach extends MythixUIComponent {
   set attr$of([ value ]) {
     let items = Utils.createTemplateMacro({ body: value, scope: Utils.createScope(this) })();
 
-    if (Utils.isType(items, Utils.DynamicProperty)) {
+    if (BaseUtils.isType(items, DynamicProperty)) {
       items.removeEventListener('update', this.onOfChange);
       items.addEventListener('update', this.onOfChange);
 
