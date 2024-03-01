@@ -101,14 +101,10 @@ export class MythixUIForEach extends MythixUIComponent {
     return item;
   }
 
-  metadataKey() {
-    return `mythix-for-each:${this.getIdentifier()}`;
-  }
-
   insertRenderedItem(context, _item) {
     let item = _item;
 
-    Utils.metadata(item, this.metadataKey(), context);
+    Utils.metadata(item, this, context);
     Utils.metadata(item, 'mythix-for-each', context);
 
     const dispatchRenderedItemEvent = (context, item) => {
@@ -133,14 +129,14 @@ export class MythixUIForEach extends MythixUIComponent {
         renderedItems,
       } = context;
 
-      let itemID = item.getAttribute('id');
+      let itemID = item.getAttribute('for-each-id');
       if (!itemID) {
         let idItem = context.item;
-        itemID = `ID${(BaseUtils.isCollectable(idItem)) ? BaseUtils.getObjectID(item) : BaseUtils.SHA256(idItem)}`;
-        item.setAttribute('id', itemID);
+        itemID = (BaseUtils.isCollectable(idItem)) ? BaseUtils.getObjectID(item) : `ID${BaseUtils.SHA256(idItem)}`;
+        item.setAttribute('for-each-id', itemID);
       }
 
-      let existingItem = renderedItems.querySelector(`${item.localName}#${itemID}`);
+      let existingItem = renderedItems.querySelector(`${item.localName}[for-each-id="${itemID}"]`);
       if (existingItem) {
         // Update attributes on existing element
         this.updateExistingItem(context, item, existingItem);
@@ -178,7 +174,7 @@ export class MythixUIForEach extends MythixUIComponent {
     const createAndRegisterTextNode = (item) => {
       let textNode = context.ownerDocument.createTextNode(item.toString());
 
-      Utils.metadata(textNode, this.metadataKey(), context);
+      Utils.metadata(textNode, this, context);
       Utils.metadata(textNode, 'mythix-for-each', context);
 
       item.registerForUpdate(textNode, (textNode, item) => {
